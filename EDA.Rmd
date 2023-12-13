@@ -1,0 +1,715 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+1. load the data
+```{r}
+library(readr)
+library(ggplot2)
+df <- read.csv("MI.data", header = FALSE)
+colnames(df) <- c("ID", "AGE", "SEX", "INF_ANAM", "STENOK_AN", "FK_STENOK", "IBS_POST", "IBS_NASL", "GB", "SIM_GIPERT", "DLIT_AG", "ZSN_A", "nr_11", "nr_01", "nr_02", "nr_03", "nr_04", "nr_07", "nr_08", "np_01", "np_04", "np_05", "np_07", "np_08", "np_09", "np_10", "endocr_01", "endocr_02", "endocr_03", "zab_leg_01", "zab_leg_02", "zab_leg_03", "zab_leg_04", "zab_leg_06", "S_AD_KBRIG", "D_AD_KBRIG", "S_AD_ORIT", "D_AD_ORIT", "O_L_POST", "K_SH_POST", "MP_TP_POST", "SVT_POST", "GT_POST", "FIB_G_POST", "ant_im", "lat_im", "inf_im", "post_im", "IM_PG_P", "ritm_ecg_p_01", "ritm_ecg_p_02", "ritm_ecg_p_04", "ritm_ecg_p_06", "ritm_ecg_p_07", "ritm_ecg_p_08", "n_r_ecg_p_01", "n_r_ecg_p_02", "n_r_ecg_p_03", "n_r_ecg_p_04", "n_r_ecg_p_05", "n_r_ecg_p_06", "n_r_ecg_p_08", "n_r_ecg_p_09", "n_r_ecg_p_10", "n_p_ecg_p_01", "n_p_ecg_p_03", "n_p_ecg_p_04", "n_p_ecg_p_05", "n_p_ecg_p_06", "n_p_ecg_p_07", "n_p_ecg_p_08", "n_p_ecg_p_09", "n_p_ecg_p_10", "n_p_ecg_p_11", "n_p_ecg_p_12", "fibr_ter_01", "fibr_ter_02", "fibr_ter_03", "fibr_ter_05", "fibr_ter_06", "fibr_ter_07", "fibr_ter_08", "GIPO_K", "K_BLOOD", "GIPER_NA", "NA_BLOOD", "ALT_BLOOD", "AST_BLOOD", "KFK_BLOOD", "L_BLOOD", "ROE", "TIME_B_S", "R_AB_1_n", "R_AB_2_n", "R_AB_3_n", "NA_KB", "NOT_NA_KB", "LID_KB", "NITR_S", "NA_R_1_n", "NA_R_2_n", "NA_R_3_n", "NOT_NA_1_n", "NOT_NA_2_n", "NOT_NA_3_n", "LID_S_n", "B_BLOK_S_n", "ANT_CA_S_n", "GEPAR_S_n", "ASP_S_n", "TIKL_S_n", "TRENT_S_n", "FIBR_PREDS", "PREDS_TAH", "JELUD_TAH", "FIBR_JELUD", "A_V_BLOK", "OTEK_LANC", "RAZRIV", "DRESSLER", "ZSN", "REC_IM", "P_IM_STEN", "LET_IS")
+df
+
+```
+2. data cleaning
+```{r}
+library(dplyr)
+df <- data.frame(lapply(df, function(x) {
+  # 将整数列转换为字符型，以处理 "?"
+  x <- as.character(x)
+  # 将 "?" 替换为 NA
+  x[x == "?"] <- NA
+  # 再将列转换回整数型
+  as.integer(x)
+}))
+```
+
+```{r}
+
+selected_vars <- df %>%
+  select(AGE, SEX, L_BLOOD, DLIT_AG, endocr_01, endocr_02, ROE, fibr_ter_01, fibr_ter_05, fibr_ter_08, B_BLOK_S_n, ant_im,lat_im,inf_im,post_im)
+
+# 查看选定变量的摘要统计信息
+summary(selected_vars)
+```
+
+
+3. EDA
+```{r}
+#LET_IS变量中不同数值的frequency
+df$Status <- ifelse(df$LET_IS == 0, "Alive", "Deceased")
+df$Status <- as.factor(df$Status)
+df$LET_IS <- as.factor(df$LET_IS)
+ggplot(df, aes(x = LET_IS)) +
+  geom_bar() +
+  labs(title = "Frequency Distribution of LET_IS Values",
+       x = "LET_IS Values",
+       y = "Frequency") +
+  theme_minimal()
+```
+```{r}
+ggplot(df, aes(x = Status)) +
+  geom_bar() +
+  labs(title = "Frequency Distribution of Status",
+       x = "Status",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+
+```{r}
+#不同年龄与性别的患者心梗及其并发症的频率分布
+library(ggplot2)
+df$SEX <- as.factor(df$SEX)
+df$LET_IS <- as.factor(df$LET_IS)
+ggplot(df, aes(x = AGE, fill = SEX)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~ LET_IS, scales = "free") +
+  labs(title = "Distribution of Patients by Age and Gender for Different Lethal outcome",
+       x = "Age Group",
+       y = "Count",
+       fill = "Gender") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(size = 5))
+```
+```{r}
+#不同gender的存活/死亡的比率
+df$SEX <- as.factor(df$SEX)
+
+ggplot(df, aes(x = SEX, fill = Status)) +
+  geom_bar() +
+  labs(title = "Stacked Frequency Distribution of Survival Status by Gender",
+       x = "Gender",
+       y = "Count",
+       fill = "Status") +
+  theme_minimal()
+```
+```{r}
+#不同的病史中心肌梗塞的数量导致的存活/死亡的比率
+df_no_na <- df[!is.na(df$INF_ANAM), ]
+ggplot(df_no_na, aes(x = factor(INF_ANAM), y = ..prop.., group = Status, fill = Status)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Stacked Proportion Distribution of Survival Status by Quantity of myocardial infarctions in the anamnesis. 0: zero 1: one 2: two 3: three and more)",
+       x = "Quantity of myocardial infarctions",
+       y = "Proportion") +
+  theme_minimal()
+```
+```{r}
+#是否高血压导致的存活/死亡的比率
+df_no_na <- df[!is.na(df$SIM_GIPERT), ]
+ggplot(df_no_na, aes(x = factor(SIM_GIPERT), y = ..prop.., group = Status, fill = Status)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Stacked Proportion Distribution of Survival Status by Symptomatic hypertension",
+       x = "Survival Status by Symptomatic hypertension",
+       y = "Proportion") +
+  theme_minimal()
+```
+```{r}
+#不同的既往史中有劳力性心绞痛导致的存活/死亡的比率
+df_no_na <- df[!is.na(df$STENOK_AN), ]
+ggplot(df_no_na, aes(x = factor(STENOK_AN), y = ..prop.., group = Status, fill = Status)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Stacked Proportion Distribution of Survival Status by Exertional angina pectoris in the anamnesis(0: never 1: during the last year 2: one year ago 3: two years ago 4: three years ago 5: 4-5 years ago)",
+       x = "Exertional angina pectoris in the anamnesis",
+       y = "Proportion") +
+  theme_minimal()
+```
+```{r}
+#不同的年龄导致的存活/死亡的比率
+df_no_na <- df[!is.na(df$AGE), ]
+ggplot(df_no_na, aes(x = AGE, y = ..prop.., group = Status, fill = Status)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Stacked Proportion Distribution of AGE",
+       x = "AGE",
+       y = "Proportion") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(size = 5))
+
+
+```
+```{r}
+#不同的红细胞沉降率导致的存活/死亡的比率
+df_no_na <- df[!is.na(df$ROE), ]
+ggplot(df_no_na, aes(x = ROE, y = ..prop.., group = Status, fill = Status)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Stacked Proportion Distribution of Erythrocyte sedimentation rate",
+       x = "ROE",
+       y = "Proportion") +
+  theme_minimal()
+ggplot(df_no_na, aes(x = factor(Status), y = ROE, fill = factor(Status))) +
+  geom_violin(trim = FALSE) +
+  labs(title = "Violin Plot of Erythrocyte sedimentation rate by Status",
+       x = "Status",
+       y = "ROE") +
+  theme_minimal()
+```
+```{r}
+#不同的白细胞计数导致的存活/死亡的比率
+ggplot(df, aes(x = L_BLOOD, y = ..prop.., group = Status, fill = Status)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Stacked Proportion Distribution of White cell count",
+       x = "White cell count",
+       y = "Proportion") +
+  theme_minimal()
+
+ggplot(df_no_na, aes(x = factor(Status), y = L_BLOOD, fill = factor(Status))) +
+  geom_violin(trim = FALSE) +
+  labs(title = "Violin Plot of White cell count by Status",
+       x = "Status",
+       y = "L_BLOOD") +
+  theme_minimal()
+```
+```{r}
+#糖尿病导致的存活/死亡的比率
+df_no_na <- df[!is.na(df$endocr_01), ]
+ggplot(df_no_na, aes(x = factor(endocr_01), y = ..prop.., group = Status, fill = Status)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Stacked Proportion Distribution of Survival Status by Diabetes",
+       x = "Diabetes mellitus in the anamnesis",
+       y = "Proportion") +
+  theme_minimal()
+```
+```{r}
+#肥胖导致的存活/死亡的比率
+df_no_na <- df[!is.na(df$endocr_02	), ]
+ggplot(df_no_na, aes(x = factor(endocr_02), y = ..prop.., group = Status, fill = Status)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Stacked Proportion Distribution of Survival Status by Obesity",
+       x = "Obesity",
+       y = "Proportion") +
+  theme_minimal()
+```
+```{r}
+#每个疗法下的存活/死亡比率
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+variables <- c("fibr_ter_01", "fibr_ter_02", "fibr_ter_03", 
+               "fibr_ter_05", "fibr_ter_06", "fibr_ter_07", "fibr_ter_08")
+df_clean <- df[complete.cases(df[, variables]), ]
+# 将数据转换为长格式，以便每种治疗都有对应的条目
+df_long <- df_clean %>%
+  pivot_longer(
+    cols = fibr_ter_01:fibr_ter_08, # 选择所有治疗变量
+    names_to = "Therapy",
+    values_to = "Treatment_Received"
+  ) %>%  
+  mutate(
+    Treatment_Received = factor(Treatment_Received, levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+# 使用ggplot2绘制分面条形图
+ggplot(df_long, aes(x = Treatment_Received, fill = Status)) +
+  geom_bar(position = "fill") +
+  facet_wrap(~ Therapy, scales = "free_x") + # 每种治疗一个小面
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = "Survival Rate Proportion by Treatment",
+       x = "Treatment Received",
+       y = "Proportion",
+       fill = "Status") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), # 旋转x轴标签以便于阅读
+        strip.text.x = element_text(angle = 0))  # 确保小面的标题水平显示
+
+
+```
+4. Logistic regression
+```{r}
+#null model
+library(tidyverse)
+library(caret)
+df$Status <- factor(df$Status, levels = c("Alive", "Deceased"))
+
+fit_null <- glm(Status ~ 1, data = df, family = binomial(link = "logit"))
+summary(fit_null)
+#Confusion MAtrix
+
+predicted_probs <- predict(fit_null, newdata = df, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(df$Status))
+cm <- confusionMatrix(predicted_classes, df$Status)
+print(cm)
+
+# ROC
+library(pROC)
+roc_obj <- roc(df$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the null model")
+abline(0, 1, lty = 2, col = "gray") 
+auc_value <- auc(roc_obj)
+cat("AUC:", auc_value, "\n")
+```
+
+```{r}
+#logistic model
+library(tidyverse)
+library(caret)
+```
+
+```{r }
+df_all <- as.data.frame(lapply(df, function(x) {
+    if(is.numeric(x)) {
+        x[is.na(x)] <- median(x, na.rm = TRUE)
+    }
+    return(x)
+})
+)
+```
+
+```{r backward}
+set.seed(625)
+indices <- createDataPartition(df_all$Status, p = 0.8, list = FALSE)
+train_set <- df_all[indices, ]
+test_set <- df_all[-indices, ]
+
+fit_all = glm(Status ~ AGE + factor(SEX) +L_BLOOD + factor(DLIT_AG) + factor(endocr_01) + factor(endocr_02)  + ROE +
+              factor(fibr_ter_01) + factor(fibr_ter_05) + factor(fibr_ter_08) + factor(B_BLOK_S_n) + ant_im + lat_im + inf_im + post_im, 
+              data = train_set, 
+              family = binomial(link = "logit"))
+
+#Confusion Matrix
+predicted_probs <- predict(fit_all, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(df$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the null model")
+abline(0, 1, lty = 2, col = "gray") 
+auc_value <- auc(roc_obj)
+cat("AUC:", auc_value, "\n")
+```
+```{r}
+# Test for the collinearity
+library(car)
+vif(fit_all)
+```
+
+
+```{r}
+reduced_model <- step(fit_all, direction="backward")
+summary(reduced_model)
+```
+
+```{r}
+reduced_fit = glm(formula = Status ~ AGE + L_BLOOD + factor(DLIT_AG) + factor(endocr_01) +
+    factor(endocr_02) + factor(B_BLOK_S_n) +factor(fibr_ter_05) + ant_im + lat_im + inf_im, family = binomial(link = "logit"), 
+    data = df_all)
+summary(reduced_fit)
+```
+```{r}
+# this block deals with the data, to generate 2 columns: AgeGroup, and DLIT_AG
+selected_df = df_all[, c("Status", "AGE", "L_BLOOD", "DLIT_AG", "endocr_01", "endocr_02", "B_BLOK_S_n","fibr_ter_05",
+                         "ant_im", "lat_im", "inf_im")]
+
+selected_df$AgeGroup <- cut(selected_df$AGE,
+                     breaks = c(-Inf, 50, 60, 70, Inf),
+                     labels = c("<50", "50-60", "60-70", ">70"),
+                     right = FALSE)
+selected_df$DLIT_AG = factor(selected_df$DLIT_AG)
+# conver the data type
+selected_df$Status = as.factor(selected_df$Status)
+selected_df$endocr_01 = as.factor(selected_df$endocr_01)
+selected_df$endocr_02 = as.factor(selected_df$endocr_02)
+selected_df$B_BLOK_S_n = as.factor(selected_df$B_BLOK_S_n)
+selected_df$fibr_ter_05 = as.factor(selected_df$fibr_ter_05)
+# output the dataset
+write.csv(selected_df, file = "selected_df.csv", row.names = FALSE)
+```
+
+## This section is to do the multilevel logistic regression models
+```{r}
+set.seed(119)
+# start to do the multilevel logistic regression
+selected_df <- read_csv("selected_df.csv")
+selected_df$Status = as.factor(selected_df$Status)
+selected_df$endocr_01 = as.factor(selected_df$endocr_01)
+selected_df$endocr_02 = as.factor(selected_df$endocr_02)
+selected_df$B_BLOK_S_n = as.factor(selected_df$B_BLOK_S_n)
+selected_df$fibr_ter_05 = as.factor(selected_df$fibr_ter_05)
+indices <- createDataPartition(selected_df$Status, p = 0.8, list = FALSE)
+train_set <- selected_df[indices, ]
+test_set <- selected_df[-indices, ]
+```
+```{r}
+library(lme4)
+# Complete Pooling（ignore the age group)
+m0 <- glm(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02 + B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im,
+            data = train_set,
+            family = binomial(link="logit")
+          )
+print(summary(m0))
+```
+```{r}
+# Confusion Matrix
+predicted_probs <- predict(m0, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+```{r}
+library(lme4)
+# No Pooling
+m <- glm(Status ~ factor(AgeGroup) + L_BLOOD + DLIT_AG + endocr_01 + endocr_02 + B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im,
+            data = train_set,
+            family = binomial(link="logit")
+          )
+print(summary(m))
+```
+```{r}
+
+# Confusion Matrix
+predicted_probs <- predict(m, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+
+
+```{r}
+library(lme4)
+# Partial Pooling
+# multilevel model 1 of random intercept
+m1 <- glmer(Status ~ 1 + (1 | AgeGroup),
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m1))
+```
+
+```{r}
+# Confusion Matrix
+predicted_probs <- predict(m1, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+
+```{r}
+# multilevel model 2 of random intercept and random slope of structured variable "endocr_01"
+m2 <- glmer(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02 + B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im 
+            + (1 + endocr_01 | AgeGroup),      
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m2))
+```
+```{r}
+# Confusion Matrix
+predicted_probs <- predict(m2, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+
+```{r}
+# multilevel model 3 of random intercept and random slope of structured variable "endocr_02"
+m3 <- glmer(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02 + B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im + 
+            (1 + endocr_02| AgeGroup) , 
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m3))
+```
+
+```{r}
+# Confusion Matrix
+predicted_probs <- predict(m3, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+
+```
+
+```{r}
+# multilevel model 4 of random intercept and random slope of structured variable "L_BLOOD"
+m4 <- glmer(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02  + B_BLOK_S_n
+             + fibr_ter_05 + ant_im + lat_im + inf_im + (1 + L_BLOOD | AgeGroup), 
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m4))
+```
+
+```{r}
+
+# Confusion Matrix
+predicted_probs <- predict(m4, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+
+```{r}
+# multilevel model 5 of random intercept and random slope of structured variable "DLIT_AG"
+m5 <- glmer(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02  + B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im + 
+            (1 + DLIT_AG | AgeGroup), 
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m5))
+```
+
+```{r}
+# Confusion Matrix
+predicted_probs <- predict(m5, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+
+
+
+```{r}
+# multilevel model 6 of random intercept and random slope of structured variable "B_BLOK_S_n"
+m6 <- glmer(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02  + B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im +
+            (1 + B_BLOK_S_n | AgeGroup), 
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m6))
+```
+
+```{r}
+
+# Confusion Matrix
+predicted_probs <- predict(m6, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+
+```{r}
+# multilevel model 7 of random intercept and random slope of structured variable "fibr_ter_05"
+m7 <- glmer(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02 + 
+            B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im + (1 + fibr_ter_05 | AgeGroup), 
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m7))
+```
+
+```{r}
+
+# Confusion Matrix
+predicted_probs <- predict(m7, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+
+
+```{r}
+# multilevel model 8 of random intercept and random slope of structured variable "ant_im"
+m8 <- glmer(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02 + 
+            B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im + (1 + ant_im | AgeGroup), 
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m8))
+```
+
+```{r}
+# Confusion Matrix
+predicted_probs <- predict(m8, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+
+
+
+
+```{r}
+# multilevel model 9 of random intercept and random slope of structured variable "lat_im"
+m9 <- glmer(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02 + 
+            B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im + (1 + lat_im | AgeGroup), 
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m9))
+```
+
+```{r}
+
+# Confusion Matrix
+predicted_probs <- predict(m9, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+```
+
+
+```{r}
+# multilevel model 10 of random intercept and random slope of structured variable "inf_im"
+m10 <- glmer(Status ~ L_BLOOD + DLIT_AG + endocr_01 + endocr_02 + 
+            B_BLOK_S_n + fibr_ter_05 + ant_im + lat_im + inf_im + (1 + inf_im | AgeGroup), 
+            data = train_set,
+            family = binomial(link="logit"),
+            nAGQ = 1)
+print(summary(m10))
+```
+
+```{r}
+# Confusion Matrix
+predicted_probs <- predict(m10, newdata = test_set, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, "Deceased", "Alive")
+predicted_classes <- factor(predicted_classes, levels = levels(test_set$Status))
+cm <- confusionMatrix(predicted_classes, test_set$Status)
+print(cm)
+
+# ROC and AUC
+library(pROC)
+roc_obj <- roc(test_set$Status, predicted_probs)
+plot(roc_obj, main="ROC Curve for the Model", col="blue")
+abline(0, 1, lty = 2, col = "gray")
+auc_value <- auc(roc_obj)
+cat("AUC for the Model:", auc_value, "\n")
+
+
+```
+
+
+<!-- ```{r} -->
+<!-- divide_by_age <- function(df) { -->
+<!--   age_groups <- list( -->
+<!--     '<50' = df[df$AGE < 50, ], -->
+<!--     '50-60' = df[df$AGE >= 50 & df$AGE <= 60, ], -->
+<!--     '60-70' = df[df$AGE > 60 & df$AGE <= 70, ], -->
+<!--     '>70' = df[df$AGE > 70, ] -->
+<!--   ) -->
+<!--   return(age_groups) -->
+<!-- } -->
+
+<!-- age_grouped_dfs <- divide_by_age(selected_df) -->
+<!-- df_under_50 <- age_grouped_dfs$'<50' -->
+<!-- df_50_to_60 <- age_grouped_dfs$'50-60' -->
+<!-- df_60_to_70 <- age_grouped_dfs$'60-70' -->
+<!-- df_above_70 <- age_grouped_dfs$'>70' -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- multi_glm <- function(df) { -->
+<!-- mod <- glm(formula = Status ~ AGE + L_BLOOD + factor(DLIT_AG) + factor(endocr_01) +  -->
+<!--     factor(endocr_02) + S_AD_KBRIG + factor(B_BLOK_S_n) +factor(NA_KB), family = binomial(link = "logit"),  -->
+<!--     data = df) -->
+<!-- print(summary(mod)) -->
+<!-- return(mod) -->
+<!-- } -->
+<!-- age_under_50_mod <- multi_glm(df_under_50) -->
+<!-- age_50_to_60_mod <- multi_glm(df_50_to_60) -->
+<!-- age_60_to_70_mod <- multi_glm(df_60_to_70) -->
+<!-- age_above_70_mod <- multi_glm(df_above_70) -->
+<!-- ``` -->
